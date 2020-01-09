@@ -1,0 +1,210 @@
+**&---------------------------------------------------------------------*
+**& Report  ZR_EKKOTRAINING_01
+**&
+**& Description: OO Report that shows general details of EKPO and EKKO
+**& Author: Elliott Haddad
+**&---------------------------------------------------------------------*
+**&                    HISTORY OF REVISIONS
+**&---------------------------------------------------------------------*
+**&        Date        Programmer        Request#            Description
+**&
+**&---------------------------------------------------------------------*
+REPORT ZR_EKKOTRAINING_01.
+
+Tables: EKKO, EKPO, MAKT.
+
+TYPES: BEGIN OF itab,
+
+         EBELN      TYPE EKKO-EBELN,  " purchase order
+         LIFNR      TYPE EKKO-LIFNR,  " vendor account number
+         WAERS      TYPE EKKO-WAERS,  " currency key
+         TXZ01      TYPE EKPO-TXZ01,  " material text
+         KTMNG      TYPE EKPO-KTMNG,  " quantity
+         NETPR      TYPE EKPO-NETPR,  " net price
+         MATNR      TYPE MAKT-MATNR,  " material text if txz01 empty
+         LINE_COLOR TYPE lvc_t_scol,
+
+
+       END OF itab.
+
+DATA: lt_s_color TYPE lvc_t_scol.
+DATA: it_ek TYPE STANDARD TABLE OF itab INITIAL SIZE 0,
+      wa_ek TYPE itab.
+
+DATA: w_ebeln TYPE EKKO-EBELN,
+      w_lifnr TYPE EKKO-LIFNR.
+
+DATA alv_table TYPE REF TO cl_salv_table.
+DATA alv_columns TYPE REF TO cl_salv_columns_table.
+DATA single_columns TYPE REF TO cl_salv_column.
+
+
+
+*AT SELECTION-SCREEN: BEGIN OF BLOCK blck1 WITH FRAME TITLE 'Report'.
+*  SELECT-OPTIONS: s_ebeln FOR w_ebeln.
+*SELECTION-SCREEN: END OF BLOCK blck1.
+*
+*INITIALIZATION.
+
+START-OF-SELECTION.
+  PERFORM data_retrieval.
+  PERFORM display_settings.
+
+END-OF-SELECTION.
+  PERFORM display_alv_report.
+
+FORM data_retrieval.
+  SELECT a~EBELN, a~LIFNR, a~WAERS,
+        b~TXZ01, b~KTMNG, b~NETPR,
+        c~MATNR
+    UP TO 10 rows
+   FROM ( ( EKKO AS a INNER JOIN EKPO AS b " we need values for both purchase orders to be matching
+   ON b~EBELN = a~EBELN )
+   INNER JOIN MAKT AS c
+   ON c~MATNR = b~MATNR )
+
+  INTO CORRESPONDING FIELDS OF TABLE @it_ek.
+
+
+ENDFORM.
+
+FORM display_settings.
+  DATA: err_message TYPE REF TO cx_salv_msg.
+
+  TRY.
+      cl_salv_table=>factory(
+      IMPORTING
+        r_salv_table = alv_table
+      CHANGING
+        t_table = it_ek ).
+
+      alv_columns = alv_table->get_columns( ).
+
+      PERFORM report_settings.
+
+    CATCH cx_salv_msg INTO err_message.
+  ENDTRY.
+ENDFORM.
+
+FORM display_alv_report.
+  alv_columns->set_optimize( ).
+  alv_table->display( ).
+ENDFORM.
+
+
+FORM report_settings.
+
+  DATA: report_settings TYPE REF TO cl_salv_display_settings.
+
+  report_settings = alv_table->get_display_settings( ).
+  report_settings->set_striped_pattern( if_salv_c_bool_sap=>true ).
+  report_settings->set_list_header( 'Display EKKO records' ).
+ENDFORM.
+
+
+
+
+
+**&---------------------------------------------------------------------*
+**& Report  ZR_EKKOTRAINING_01
+**&
+**& Description: Classical Report that shows general details of EKPO and EKKO
+**& Author: Elliott Haddad
+**&---------------------------------------------------------------------*
+**&                    HISTORY OF REVISIONS
+**&---------------------------------------------------------------------*
+**&        Date        Programmer        Request#            Description
+**&
+**&---------------------------------------------------------------------*
+*REPORT ZR_EKKOTRAINING_01.
+*
+*TYPE-POOLS: slis.
+*
+*Tables: EKKO, EKPO, MARA, MAKT.
+*
+*TYPES: BEGIN OF itab,
+*
+*         EBELN      TYPE EKKO-EBELN,  " purchase order
+*         LIFNR      TYPE EKKO-LIFNR,  " vendor account number
+*         WAERS      TYPE EKKO-WAERS,  " currency key
+*         TXZ01      TYPE EKPO-TXZ01,  " material text
+*         KTMNG      TYPE EKPO-KTMNG,  " quantity
+*         NETPR      TYPE EKPO-NETPR,  " net price
+*         MATNR      TYPE MAKT-MATNR,  " material number
+*         LINE_COLOR TYPE lvc_t_scol,
+*
+*       END OF itab.
+*
+*
+*DATA: it_ek TYPE slis_t_fieldcat_alv,
+*      wa_ek TYPE slis_fieldcat_alv.
+*
+*
+*
+*START-OF-SELECTION.
+*  SELECT a~EBELN, a~LIFNR, a~WAERS,
+*        b~TXZ01, b~KTMNG, b~NETPR,
+*        c~MATNR
+*   FROM ( ( EKKO AS a INNER JOIN EKPO AS b " we need values for both purchase orders to be matching
+*   ON b~EBELN = a~EBELN )
+*   INNER JOIN MAKT AS c
+*   ON c~MATNR = b~MATNR )
+*
+*
+* INTO TABLE @DATA(it_table). "WHERE EBELN IN MATS.
+*
+** Check for empty material number values to be
+*  DATA wa_table TYPE itab.
+*
+*  LOOP AT it_table INTO wa_table.
+*    SELECT SINGLE MATNR INTO wa_table-MATNR
+*      FROM MARA WHERE MAKTX = itab-TXZ01.
+*    MODIFY itab FROM wa_table.
+*  ENDLOOP.
+*
+*
+**  SELECT MATNR FROM MARA INTO TABLE @DATA(itab_mara).
+**
+**  IF itab_mara[] IS INITIAL.
+**    SELECT maktx FROM makt INTO TABLE @DATA(itab_makt) FOR ALL ENTRIES IN @itab_mara WHERE matnr = @itab_mara-matnr.
+**  ENDIF.
+*
+*
+*  wa_ek-fieldname = 'EBELN'.
+*  wa_ek-seltext_m = 'Purchase Order'.
+*  APPEND wa_ek TO it_ek.
+*
+*  wa_ek-fieldname = 'LIFNR'.
+*  wa_ek-seltext_m = 'Vendor Account Number'.
+*  APPEND wa_ek TO it_ek.
+*
+*  wa_ek-fieldname = 'WAERS'.
+*  wa_ek-seltext_m = 'Currency Key'.
+*  APPEND wa_ek TO it_ek.
+*
+*  wa_ek-fieldname = 'TXZ01'.
+*  wa_ek-seltext_m = 'Material Text'.
+*  APPEND wa_ek TO it_ek.
+*
+*  wa_ek-fieldname = 'KTMNG'.
+*  wa_ek-seltext_m = 'Quantity'.
+*  APPEND wa_ek TO it_ek.
+*
+*  wa_ek-fieldname = 'NETPR'.
+*  wa_ek-seltext_m = 'Price'.
+*  APPEND wa_ek TO it_ek.
+*
+*  wa_ek-fieldname = 'MATNR'.
+*  wa_ek-seltext_m = 'Material Number'.
+*  APPEND wa_ek TO it_ek.
+*
+*
+*
+*  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+*    EXPORTING
+*      it_fieldcat   = it_ek
+*    TABLES
+*      t_outtab      = it_table
+*    EXCEPTIONS
+*      program_error = 1
+*      OTHERS        = 2.
